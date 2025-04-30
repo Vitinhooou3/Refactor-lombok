@@ -3,6 +3,7 @@ package org.example;
 
 import com.github.javaparser.*;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.MarkerAnnotationExpr;
@@ -16,7 +17,7 @@ import java.util.*;
 public class LombokRefactor {
 
     public static void main(String[] args) throws IOException {
-        Path root = Paths.get("C:/Workspace/FeedBackBarao-Back/");
+        Path root = Paths.get("/home/victor/victor/dev/repo/eclipse/econect/Econect-RestauranteAPI/src/econect/restaurante");
         Files.walk(root)
             .filter(path -> path.toString().endsWith(".java"))
             .forEach(path -> {
@@ -29,6 +30,10 @@ public class LombokRefactor {
                     Map<String, FieldDeclaration> campos = new HashMap<>();
                     List<String> camposComGetter = new ArrayList<>();
                     List<String> camposComSetter = new ArrayList<>();
+
+                    if (classeComAnotacaoXML(cu) || classeComAnotacaoWeb(cu)) {
+                        return;
+                    }
 
                     // 1. Identifica todos os campos
                     cu.findAll(FieldDeclaration.class).forEach(f -> {
@@ -121,4 +126,29 @@ public class LombokRefactor {
 
         return nomeMetodo;
     }
+
+    private static boolean classeComAnotacaoXML(CompilationUnit cu) {
+        boolean result = cu.findAll(ClassOrInterfaceDeclaration.class).stream()
+                .anyMatch(classe ->
+                        classe.getAnnotations().stream()
+                                .anyMatch(annot -> annot.getNameAsString().startsWith("Xml"))
+                );
+        if (result) {
+            System.out.println("Classe ignorada por anotação @Xml: " + cu.getType(0).getNameAsString());
+        }
+        return result;
+    }
+
+    private static boolean classeComAnotacaoWeb(CompilationUnit cu) {
+        boolean result = cu.findAll(ClassOrInterfaceDeclaration.class).stream()
+                .anyMatch(classe ->
+                        classe.getAnnotations().stream()
+                                .anyMatch(annotationExpr -> annotationExpr.getNameAsString().startsWith("Web"))
+                );
+        if (result) {
+            System.out.println("Classe ignorada por anotação @Web: " + cu.getType(0).getNameAsString());
+        }
+        return result;
+    }
+
 }
