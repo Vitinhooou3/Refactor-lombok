@@ -84,7 +84,7 @@ public class LombokRefactor {
                         cu.addImport("lombok.Setter");
 
                     }
-
+                    //TODO: colocar get/set para booleanos.
                     Files.write(path, cu.toString().getBytes());
 
                 } catch (Exception e) {
