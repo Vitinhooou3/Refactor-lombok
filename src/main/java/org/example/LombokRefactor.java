@@ -17,6 +17,7 @@ import java.util.*;
 public class LombokRefactor {
 
     public static void main(String[] args) throws IOException {
+        System.out.println("caminho:" + args[0]);
         Path root = Paths.get(args[0]);
         Files.walk(root)
             .filter(path -> path.toString().endsWith(".java"))
@@ -88,7 +89,11 @@ public class LombokRefactor {
 
                     }
                     Files.write(path, cu.toString().getBytes());
-
+                    if (args.length > 1 && Objects.equals(args[1], "mostrar")) {
+                        cu.getPrimaryTypeName().ifPresent(className -> {
+                            System.out.println("Classe: " + className);
+                        });
+                    }
                 } catch (Exception e) {
                     System.err.println("Erro em " + path + ": " + e.getMessage());
                 }
