@@ -46,6 +46,7 @@ public class LombokRefactor {
                         public Visitable visit(MethodDeclaration md, Void arg) {
                             if (ehGetterOuSetterSimples(md, campos.keySet())) {
                                 String nomeCampo = (md.getNameAsString());
+
                                 if (nomeCampo.startsWith("get")) {
                                     camposComGetter.add(nomeDoCampo(nomeCampo));
                                 }
@@ -54,12 +55,15 @@ public class LombokRefactor {
                                     camposComSetter.add(nomeDoCampo(nomeCampo));
                                 }
 
+                                if (nomeCampo.startsWith("is")) {
+                                    camposComGetter.add(nomeDoCampo(nomeCampo));
+                                }
+
                                 return null; // remove method
                             }
                             return super.visit(md, arg);
                         }
                     }, null);
-
                     if (!camposComGetter.isEmpty()) {
                         camposComGetter.stream()
                                 .distinct()
@@ -71,7 +75,6 @@ public class LombokRefactor {
 
                         cu.addImport("lombok.Getter");
                     }
-
                     if (!camposComSetter.isEmpty()) {
                         camposComSetter.stream()
                                 .distinct()
@@ -84,7 +87,6 @@ public class LombokRefactor {
                         cu.addImport("lombok.Setter");
 
                     }
-                    //TODO: colocar get/set para booleanos.
                     Files.write(path, cu.toString().getBytes());
 
                 } catch (Exception e) {
@@ -102,9 +104,9 @@ public class LombokRefactor {
 
         if (!nomesCampos.contains(nomeCampo)) return false;
 
-        var stmt = md.getBody().get().getStatement(0).toString();
+        String stmt = md.getBody().get().getStatement(0).toString();
 
-        if (nomeMetodo.startsWith("get")) {
+        if (nomeMetodo.startsWith("get") || nomeMetodo.startsWith("is")) {
             // Deve ser: return campo;
             return stmt.matches("return\\s+\\.?"+nomeCampo+";");
 
@@ -113,17 +115,18 @@ public class LombokRefactor {
             if (md.getParameters().size() != 1) return false;
             return stmt.matches("(this\\.)?"+nomeCampo+"\\s*=\\s*"+md.getParameter(0).getName()+";");
         }
-
         return false;
     }
 
     private static String nomeDoCampo(String nomeMetodo) {
-
+        String semPrefixo;
         if (nomeMetodo.startsWith("get") || nomeMetodo.startsWith("set")) {
-            String semPrefixo = nomeMetodo.substring(3);
+            semPrefixo = nomeMetodo.substring(3);
+            return Character.toLowerCase(semPrefixo.charAt(0)) + semPrefixo.substring(1);
+        } else if (nomeMetodo.startsWith("is")) {
+            semPrefixo = nomeMetodo.substring(2);
             return Character.toLowerCase(semPrefixo.charAt(0)) + semPrefixo.substring(1);
         }
-
         return nomeMetodo;
     }
 
@@ -150,5 +153,4 @@ public class LombokRefactor {
         }
         return result;
     }
-
 }
