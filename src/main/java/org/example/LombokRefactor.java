@@ -17,7 +17,7 @@ import java.util.*;
 public class LombokRefactor {
 
     public static void main(String[] args) throws IOException {
-        Path root = Paths.get("/home/victor/victor/dev/repo/eclipse/econect/Econect-RestauranteAPI/src/econect/restaurante");
+        Path root = Paths.get(args[0]);
         Files.walk(root)
             .filter(path -> path.toString().endsWith(".java"))
             .forEach(path -> {
