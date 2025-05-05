@@ -9,6 +9,7 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.MarkerAnnotationExpr;
 import com.github.javaparser.ast.visitor.ModifierVisitor;
 import com.github.javaparser.ast.visitor.Visitable;
+import com.github.javaparser.printer.lexicalpreservation.LexicalPreservingPrinter;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -27,6 +28,7 @@ public class LombokRefactor {
                     ParseResult<CompilationUnit> parseResult = javaParser.parse(path);
 
                     CompilationUnit cu = parseResult.getResult().get();
+                    LexicalPreservingPrinter.setup(cu);
 
                     Map<String, FieldDeclaration> campos = new HashMap<>();
                     List<String> camposComGetter = new ArrayList<>();
@@ -36,9 +38,13 @@ public class LombokRefactor {
                         return;
                     }
 
-                    // 1. Identifica todos os campos
+                    // 1. Identifica todos os campos e não adiciona estáticos e privados
                     cu.findAll(FieldDeclaration.class).forEach(f -> {
-                        f.getVariables().forEach(var -> campos.put(var.getNameAsString(), f));
+                        f.getVariables().forEach(var -> {
+                            if (!f.isStatic()) {
+                                campos.put(var.getNameAsString(), f);
+                            }
+                        });
                     });
 
                     // 2. Remove métodos get/set simples e marca os campos associados
@@ -88,7 +94,10 @@ public class LombokRefactor {
                         cu.addImport("lombok.Setter");
 
                     }
-                    Files.write(path, cu.toString().getBytes());
+                    String result = LexicalPreservingPrinter.print(cu);
+                    result = result.replaceAll("@Setter", "\n\t@Setter");
+                    result = result.replaceAll("@(\\w+)\\s+@(Getter)", "@$1\n\t@$2");
+                    Files.writeString(path, result);
                     if (args.length > 1 && Objects.equals(args[1], "mostrar")) {
                         cu.getPrimaryTypeName().ifPresent(className -> {
                             System.out.println("Classe: " + className);
@@ -107,7 +116,7 @@ public class LombokRefactor {
         String nomeMetodo = md.getNameAsString();
         String nomeCampo = nomeDoCampo(nomeMetodo);
 
-        if (!nomesCampos.contains(nomeCampo)) return false;
+        if (!nomesCampos.contains(nomeCampo) || md.isPrivate() || md.isStatic() || md.isProtected()) return false;
 
         String stmt = md.getBody().get().getStatement(0).toString();
 
