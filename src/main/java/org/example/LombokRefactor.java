@@ -7,7 +7,6 @@ import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.expr.MarkerAnnotationExpr;
 import com.github.javaparser.ast.expr.NormalAnnotationExpr;
 import com.github.javaparser.ast.visitor.ModifierVisitor;
 import com.github.javaparser.ast.visitor.Visitable;
@@ -20,8 +19,8 @@ import java.util.*;
 public class LombokRefactor {
 
     public static void main(String[] args) throws IOException {
-        System.out.println("caminho:");
-        Path root = Paths.get("/home/victor/victor/dev/repo/eclipse/econect/Econect-Assistente/econect");
+        System.out.println(args[0]);
+        Path root = Paths.get(args[0]);
         Files.walk(root)
             .filter(path -> path.toString().endsWith(".java"))
             .forEach(path -> {
@@ -57,7 +56,7 @@ public class LombokRefactor {
                                 String nomeCampo = nomeDoCampo(nomeMetodo);
 
                                 Modifier.Keyword modificador = method.getModifiers()
-                                        .isEmpty() ? Modifier.Keyword.PUBLIC : method.getModifiers().get(0).getKeyword();
+                                        .isEmpty() ? null : method.getModifiers().get(0).getKeyword();
 
                                 if (nomeMetodo.startsWith("get") || nomeMetodo.startsWith("is")  ) {
                                     metodosGetter.put(nomeCampo, modificador);
@@ -97,18 +96,17 @@ public class LombokRefactor {
                                 .map(campos::get)
                                 .filter(Objects::nonNull)
                                 .forEach(f -> {
-
                                     String nomeCampo = f.getVariable(0).getNameAsString();
                                     Modifier.Keyword modGetter = metodosGetter.get(nomeCampo);
 
-                                    if (modGetter != null && modGetter != Modifier.Keyword.PUBLIC) {
-                                        NormalAnnotationExpr setterAnnotation = new NormalAnnotationExpr();
-                                        setterAnnotation.setName("Getter");
-                                        setterAnnotation.addPair("value", "AccessLevel." + modGetter.toString().toUpperCase());
-                                        f.addAnnotation(setterAnnotation);
+                                    if(modGetter != Modifier.Keyword.PUBLIC) {
+                                        NormalAnnotationExpr getterAnnotation = new NormalAnnotationExpr();
+                                        getterAnnotation.setName("Getter");
+                                        getterAnnotation.addPair("value", "AccessLevel." + (modGetter != null ? modGetter.toString().toUpperCase() : "PACKAGE"));
+                                        f.addAnnotation(getterAnnotation);
                                         cu.addImport("lombok.AccessLevel");
                                     } else {
-                                        f.addAnnotation(new MarkerAnnotationExpr("Getter"));
+                                        f.addAnnotation("Getter");
                                     }
                                 });
 
@@ -123,14 +121,14 @@ public class LombokRefactor {
                                     String nomeCampo = f.getVariable(0).getNameAsString();
                                     Modifier.Keyword modSetter = metodosSetter.get(nomeCampo);
 
-                                    if (modSetter != null && modSetter != Modifier.Keyword.PUBLIC) {
+                                    if(modSetter != Modifier.Keyword.PUBLIC) {
                                         NormalAnnotationExpr setterAnnotation = new NormalAnnotationExpr();
                                         setterAnnotation.setName("Setter");
-                                        setterAnnotation.addPair("value","AccessLevel." + modSetter.toString().toUpperCase());
+                                        setterAnnotation.addPair("value", "AccessLevel." + (modSetter != null ? modSetter.toString().toUpperCase() : "PACKAGE"));
                                         f.addAnnotation(setterAnnotation);
                                         cu.addImport("lombok.AccessLevel");
                                     } else {
-                                        f.addAnnotation(new MarkerAnnotationExpr("Setter"));
+                                        f.addAnnotation("Setter");
                                     }
                                 });
 
@@ -139,15 +137,13 @@ public class LombokRefactor {
                     }
                     String result = LexicalPreservingPrinter.print(cu);
                     result = result.replaceAll("@Setter", "\n\t@Setter");
-                    result = result.replaceAll("@(\\w+)\\s+@(Getter)", "@$1\n@$2");
+                    result = result.replaceAll("@(\\w+)\\s+@(Getter)", "@$1\n\t@$2");
                     Files.writeString(path, result);
 
-                    cu.getPrimaryTypeName().ifPresent(className -> {
-                        System.out.println("Classe: " + className);
-                    });
-
                     if (args.length > 1 && Objects.equals(args[1], "mostrar")) {
-
+                        cu.getPrimaryTypeName().ifPresent(className -> {
+                            System.out.println("Classe: " + className);
+                        });
                     }
                 } catch (Exception e) {
                     System.err.println("Erro em " + path + ": " + e.getMessage());
@@ -162,7 +158,7 @@ public class LombokRefactor {
         String nomeMetodo = md.getNameAsString();
         String nomeCampo = nomeDoCampo(nomeMetodo);
 
-        if (!nomesCampos.contains(nomeCampo) || md.isStatic() || md.isProtected()) return false;
+        if (!nomesCampos.contains(nomeCampo) || md.isStatic()) return false;
 
         String stmt = md.getBody().get().getStatement(0).toString();
 
