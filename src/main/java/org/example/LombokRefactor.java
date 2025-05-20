@@ -41,7 +41,7 @@ public class LombokRefactor {
                         return;
                     }
 
-                    // 1. Identifica todos os campos e não adiciona estáticos e privados
+                    // 1. Identifica todos os campos e não adiciona estáticos
                     cu.findAll(FieldDeclaration.class).forEach(f -> {
                         f.getVariables().forEach(var -> {
                             if (!f.isStatic()) {
@@ -163,9 +163,8 @@ public class LombokRefactor {
         String stmt = md.getBody().get().getStatement(0).toString();
 
         if (nomeMetodo.startsWith("get") || nomeMetodo.startsWith("is")) {
-            // Deve ser: return campo;
-            return stmt.matches("return\\s+\\.?"+nomeCampo+";");
-
+            // Deve ser: return campo; ou return this.campo
+            return stmt.matches("return\\s+" + nomeCampo + "\\s*;") || stmt.matches("return\\s+this\\s*\\.\\s*" + nomeCampo + "\\s*;");
         } else if (nomeMetodo.startsWith("set")) {
             // Deve ser: this.campo = param; ou campo = param;
             if (md.getParameters().size() != 1) return false;
