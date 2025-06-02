@@ -105,7 +105,7 @@ public class LombokRefactor {
                                 .map(campos::get)
                                 .filter(Objects::nonNull)
                                 .forEach(f -> {
-                                    String nomeCampo = f.getVariable(0).getNameAsString();
+                                    String nomeCampo = normalizarNome(f.getVariable(0).getNameAsString(), false);
                                     Modifier.Keyword modGetter = metodosGetter.get(nomeCampo);
 
                                     if(modGetter != Modifier.Keyword.PUBLIC) {
@@ -127,7 +127,7 @@ public class LombokRefactor {
                                 .map(campos::get)
                                 .filter(Objects::nonNull)
                                 .forEach(f -> {
-                                    String nomeCampo = f.getVariable(0).getNameAsString();
+                                    String nomeCampo = normalizarNome(f.getVariable(0).getNameAsString(), false);
                                     Modifier.Keyword modSetter = metodosSetter.get(nomeCampo);
 
                                     if(modSetter != Modifier.Keyword.PUBLIC) {
@@ -186,7 +186,7 @@ public class LombokRefactor {
 
             //validação para set com valor booleano em casos da variavel começar com is+campo
             if (Objects.equals(md.getParameter(0).getType().asString(), "boolean")) {
-                var nomeCampoBooleanForaDePadrao = "is" + Character.toUpperCase(nomeCampo.charAt(0)) + nomeCampo.substring(1);
+                var nomeCampoBooleanForaDePadrao = "is" + normalizarNome(nomeCampo, true);
                 return stmt.matches("(this\\.)?"+nomeCampoBooleanForaDePadrao+"\\s*=\\s*"+md.getParameter(0).getName()+";")
                         || stmt.matches(nomeCampoBooleanForaDePadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";");
             }
@@ -199,7 +199,7 @@ public class LombokRefactor {
         } else if (nomeMetodo.startsWith("is")) {
 
             //validação do get com valor booleano em casos da variavel comecar com is+campo
-            var nomeCampoBooleanForaDePadrao = "is" + Character.toUpperCase(nomeCampo.charAt(0)) + nomeCampo.substring(1);
+            var nomeCampoBooleanForaDePadrao = "is" + normalizarNome(nomeCampo, true);
             return stmt.matches("return\\s+" + nomeCampoBooleanForaDePadrao + "\\s*;") || stmt.matches("return\\s+" + nomeCampo + "\\s*;");
         }
         return false;
@@ -224,13 +224,13 @@ public class LombokRefactor {
             if (Objects.equals(semPrefixo, "")) {
                 return nomeMetodo;
             }
-            return Character.toLowerCase(semPrefixo.charAt(0)) + semPrefixo.substring(1);
+            return normalizarNome(semPrefixo, false);
         } else if (nomeMetodo.startsWith("is")) {
             semPrefixo = nomeMetodo.substring(2);
             if (Objects.equals(semPrefixo, "")) {
                 return nomeMetodo;
             }
-            return Character.toLowerCase(semPrefixo.charAt(0)) + semPrefixo.substring(1);
+            return normalizarNome(semPrefixo, false);
         }
         return nomeMetodo;
     }
@@ -252,6 +252,11 @@ public class LombokRefactor {
 
         return matches.stream()
                 .anyMatch(match -> match.equalsIgnoreCase(stringValidar));
+    }
+
+    public static String normalizarNome(String nome, boolean upper) {
+        return upper ? Character.toUpperCase(nome.charAt(0)) + nome.substring(1)
+                : Character.toLowerCase(nome.charAt(0)) + nome.substring(1);
     }
 
 }
