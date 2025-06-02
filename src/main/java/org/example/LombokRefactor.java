@@ -19,8 +19,8 @@ import java.util.*;
 public class LombokRefactor {
 
     public static void main(String[] args) throws IOException {
-        System.out.println(args[0]);
-        Path root = Paths.get(args[0]);
+        Path root = Paths.get("/home/victor/victor/dev/repo/eclipse/econect/Econect-CartaoPresente/econect/cartaopresente/entity/");
+
         Files.walk(root)
             .filter(path -> path.toString().endsWith(".java"))
             .forEach(path -> {
@@ -44,8 +44,17 @@ public class LombokRefactor {
                     // 1. Identifica todos os campos e não adiciona estáticos
                     cu.findAll(FieldDeclaration.class).forEach(f -> {
                         f.getVariables().forEach(var -> {
+                            String nomeVariavel = var.getNameAsString();
                             if (!f.isStatic()) {
-                                campos.put(var.getNameAsString(), f);
+                                if (f.getElementType().asString().equals("boolean") && nomeVariavel.startsWith("is")) {
+                                    String name = Character.toLowerCase(nomeVariavel.charAt(2)) + nomeVariavel.substring(3);
+                                    var.setName(name);
+                                    campos.put(name, f);
+                                } else {
+                                    String name = Character.toLowerCase(nomeVariavel.charAt(0)) + nomeVariavel.substring(1);
+                                    campos.put(name, f);
+                                }
+
                             }
                         });
                     });
@@ -157,32 +166,43 @@ public class LombokRefactor {
 
         String nomeMetodo = md.getNameAsString();
         String nomeCampo = nomeDoCampo(nomeMetodo);
+        String nomeForaPadrao = Character.toUpperCase(nomeCampo.charAt(0)) + nomeCampo.substring(1);
 
         if (!nomesCampos.contains(nomeCampo) || md.isStatic()) return false;
 
         String stmt = md.getBody().get().getStatement(0).toString();
 
-        if (nomeMetodo.startsWith("get") || nomeMetodo.startsWith("is")) {
-            // Deve ser: return campo; ou return this.campo
-            return stmt.matches("return\\s+" + nomeCampo + "\\s*;") || stmt.matches("return\\s+this\\s*\\.\\s*" + nomeCampo + "\\s*;");
+        if (nomeMetodo.startsWith("get") ) {
+
+
+            //validação do get comum
+            return stmt.matches("return\\s+" + nomeCampo + "\\s*;")
+                    || stmt.matches("return\\s+this\\s*\\.\\s*" + nomeCampo + "\\s*;")
+                    || stmt.matches("return\\s+" + nomeForaPadrao + "\\s*;");
+
         } else if (nomeMetodo.startsWith("set")) {
-            // Deve ser: this.campo = param; ou campo = param;
+
             if (md.getParameters().size() != 1) return false;
-            return stmt.matches("(this\\.)?"+nomeCampo+"\\s*=\\s*"+md.getParameter(0).getName()+";");
+
+            //validação para set com valor booleano em casos da variavel começar com is+campo
+            if (Objects.equals(md.getParameter(0).getType().asString(), "boolean")) {
+                var nomeCampoBooleanForaDePadrao = "is" + Character.toUpperCase(nomeCampo.charAt(0)) + nomeCampo.substring(1);
+                return stmt.matches("(this\\.)?"+nomeCampoBooleanForaDePadrao+"\\s*=\\s*"+md.getParameter(0).getName()+";")
+                        || stmt.matches(nomeCampoBooleanForaDePadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";");
+            }
+
+            //validação dos set comum
+            return stmt.matches("(this\\.)?"+nomeCampo+"\\s*=\\s*"+md.getParameter(0).getName()+";")
+                    || stmt.matches(nomeCampo + "\\s*=\\s*" + md.getParameter(0).getName() + ";")
+                    |stmt.matches("(this\\.)?" + nomeForaPadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";");
+
+        } else if (nomeMetodo.startsWith("is")) {
+
+            //validação do get com valor booleano em casos da variavel comecar com is+campo
+            var nomeCampoBooleanForaDePadrao = "is" + Character.toUpperCase(nomeCampo.charAt(0)) + nomeCampo.substring(1);
+            return stmt.matches("return\\s+" + nomeCampoBooleanForaDePadrao + "\\s*;") || stmt.matches("return\\s+" + nomeCampo + "\\s*;");
         }
         return false;
-    }
-
-    private static String nomeDoCampo(String nomeMetodo) {
-        String semPrefixo;
-        if (nomeMetodo.startsWith("get") || nomeMetodo.startsWith("set")) {
-            semPrefixo = nomeMetodo.substring(3);
-            return Character.toLowerCase(semPrefixo.charAt(0)) + semPrefixo.substring(1);
-        } else if (nomeMetodo.startsWith("is")) {
-            semPrefixo = nomeMetodo.substring(2);
-            return Character.toLowerCase(semPrefixo.charAt(0)) + semPrefixo.substring(1);
-        }
-        return nomeMetodo;
     }
 
     private static boolean classeComAnotacaoXML(CompilationUnit cu) {
@@ -195,6 +215,18 @@ public class LombokRefactor {
             System.out.println("Classe ignorada por anotação @Xml: " + cu.getType(0).getNameAsString());
         }
         return result;
+    }
+
+    private static String nomeDoCampo(String nomeMetodo) {
+        String semPrefixo;
+        if (nomeMetodo.startsWith("get") || nomeMetodo.startsWith("set")) {
+            semPrefixo = nomeMetodo.substring(3);
+            return Character.toLowerCase(semPrefixo.charAt(0)) + semPrefixo.substring(1);
+        } else if (nomeMetodo.startsWith("is")) {
+            semPrefixo = nomeMetodo.substring(2);
+            return Character.toLowerCase(semPrefixo.charAt(0)) + semPrefixo.substring(1);
+        }
+        return nomeMetodo;
     }
 
     private static boolean classeComAnotacaoWeb(CompilationUnit cu) {
