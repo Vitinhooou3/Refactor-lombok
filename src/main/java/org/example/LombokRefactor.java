@@ -19,8 +19,7 @@ import java.util.*;
 public class LombokRefactor {
 
     public static void main(String[] args) throws IOException {
-        System.out.println(args[0]);
-        Path root = Paths.get(args[0]);
+        Path root = Paths.get("/home/victor/victor/dev/repo/eclipse/econect/PDVTouch_API/src/br/techno/pdvtouch/api/utils");
         Files.walk(root)
             .filter(path -> path.toString().endsWith(".java"))
             .forEach(path -> {
@@ -177,9 +176,15 @@ public class LombokRefactor {
         String semPrefixo;
         if (nomeMetodo.startsWith("get") || nomeMetodo.startsWith("set")) {
             semPrefixo = nomeMetodo.substring(3);
+            if (Objects.equals(semPrefixo, "")) {
+                return nomeMetodo;
+            }
             return Character.toLowerCase(semPrefixo.charAt(0)) + semPrefixo.substring(1);
         } else if (nomeMetodo.startsWith("is")) {
             semPrefixo = nomeMetodo.substring(2);
+            if (Objects.equals(semPrefixo, "")) {
+                return nomeMetodo;
+            }
             return Character.toLowerCase(semPrefixo.charAt(0)) + semPrefixo.substring(1);
         }
         return nomeMetodo;
