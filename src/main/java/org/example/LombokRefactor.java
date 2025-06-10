@@ -191,18 +191,17 @@ public class LombokRefactor {
             } else if (nomeMetodo.startsWith("set")) {
                 if (md.getParameters().size() != 1) return false;
 
-                //validação para set com valor booleano em casos da variavel começar com is+campo
-                if (Objects.equals(md.getParameter(0).getType().asString(), "boolean")) {
-                    var nomeCampoBooleanForaDePadrao = "is" + normalizarNome(nomeCampo, true);
-                    return stmt.matches("(this\\.)?"+nomeCampoBooleanForaDePadrao+"\\s*=\\s*"+md.getParameter(0).getName()+";")
-                            || stmt.matches(nomeCampoBooleanForaDePadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";")
-                            || stmt.matches("(this\\.)?"+nomeCampo+"\\s*=\\s*"+md.getParameter(0).getName()+";");
-                }
+            //validação para set com valor booleano em casos da variavel começar com is+campo
+            if (Objects.equals(md.getParameter(0).getType().asString(), "boolean")) {
+                var nomeCampoBooleanForaDePadrao = "is" + normalizarNome(nomeCampo, true);
+                return stmt.matches("(this\\.)?"+nomeCampoBooleanForaDePadrao+"\\s*=\\s*"+md.getParameter(0).getName()+";")
+                        || stmt.matches(nomeCampoBooleanForaDePadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";");
+            }
 
-                //validação dos set comum
-                return stmt.matches("(this\\.)?"+nomeCampo+"\\s*=\\s*"+md.getParameter(0).getName()+";")
-                        || stmt.matches(nomeCampo + "\\s*=\\s*" + md.getParameter(0).getName() + ";")
-                        |stmt.matches("(this\\.)?" + nomeForaPadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";");
+            //validação dos set comum
+            return stmt.matches("(this\\.)?"+nomeCampo+"\\s*=\\s*"+md.getParameter(0).getName()+";")
+                    || stmt.matches(nomeCampo + "\\s*=\\s*" + md.getParameter(0).getName() + ";")
+                    |stmt.matches("(this\\.)?" + nomeForaPadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";");
 
             } else if (nomeMetodo.startsWith("is")) {
 
