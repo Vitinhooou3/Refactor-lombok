@@ -62,9 +62,11 @@ public class LombokRefactor {
                         cu.findAll(FieldDeclaration.class).forEach(f -> {
                             f.getVariables().forEach(var -> {
                                 String nomeVariavel = var.getNameAsString();
+                                String name = Character.toLowerCase(nomeVariavel.charAt(0)) + nomeVariavel.substring(1);
                                 if (!f.isStatic()) {
-                                    String name = Character.toLowerCase(nomeVariavel.charAt(0)) + nomeVariavel.substring(1);
-                                    var.setName(name);
+                                    if (f.getElementType().asString().equals("boolean") && var.getNameAsString().startsWith("is")) {
+                                        name = Character.toLowerCase(nomeVariavel.charAt(2)) + nomeVariavel.substring(3);
+                                    }
                                     campos.put(name, f);
                                 }
                             });
@@ -117,6 +119,12 @@ public class LombokRefactor {
                                     .filter(Objects::nonNull)
                                     .forEach(f -> {
                                         String nomeCampo = normalizarNome(f.getVariable(0).getNameAsString(), false);
+                                        var var = f.getVariables().get(0);
+
+                                        if (f.getElementType().asString().equals("boolean") && var.getNameAsString().startsWith("is")) {
+                                            nomeCampo = Character.toLowerCase(nomeCampo.charAt(2)) + nomeCampo.substring(3);
+                                            var.setName(nomeCampo);
+                                        }
                                         Modifier.Keyword modGetter = metodosGetter.get(nomeCampo);
 
                                         if(modGetter != Modifier.Keyword.PUBLIC) {
@@ -199,7 +207,7 @@ public class LombokRefactor {
     }
 
     private static boolean ehGetterOuSetterSimples(MethodDeclaration md) {
-        if (md.getBody().isPresent() && md.getBody().get().getStatements().size() == 1 && validaNomeMetodo(md)) {
+        if (md.getBody().isPresent() && md.getBody().get().getStatements().size() == 1 && validaNomeMetodo(md) && !md.isStatic()) {
 
             String nomeMetodo = md.getNameAsString();
             String nomeCampo = nomeDoCampo(nomeMetodo);
@@ -422,5 +430,4 @@ public class LombokRefactor {
             }
         });
     }
-
 }
