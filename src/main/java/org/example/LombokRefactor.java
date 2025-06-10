@@ -20,7 +20,7 @@ import java.util.*;
 public class LombokRefactor {
 
     public static void main(String[] args) throws IOException {
-        Path root = Paths.get("/home/victor/victor/dev/repo/eclipse/econect/");
+        Path root = Paths.get("/home/victor/victor/dev/repo/eclipse/econect/Econect-CFeAPI/src/main/java/econect/cfe/nfce/retorno/consstsrv/RetornoWsConsStatServNFCe.java");
 
         Files.walk(root)
             .filter(path -> path.toString().endsWith(".java"))
@@ -56,10 +56,12 @@ public class LombokRefactor {
                     cu.findAll(FieldDeclaration.class).forEach(f -> {
                         f.getVariables().forEach(var -> {
                             String nomeVariavel = var.getNameAsString();
+                            String name = Character.toLowerCase(nomeVariavel.charAt(0)) + nomeVariavel.substring(1);
                             if (!f.isStatic()) {
-                                    String name = Character.toLowerCase(nomeVariavel.charAt(0)) + nomeVariavel.substring(1);
-                                    campos.put(name, f);
-
+                                if (f.getElementType().asString().equals("boolean") && var.getNameAsString().startsWith("is")) {
+                                    name = Character.toLowerCase(nomeVariavel.charAt(2)) + nomeVariavel.substring(3);
+                                }
+                                campos.put(name, f);
                             }
                         });
                     });
@@ -84,7 +86,7 @@ public class LombokRefactor {
                     cu.accept(new ModifierVisitor<Void>() {
                         @Override
                         public Visitable visit(MethodDeclaration md, Void arg) {
-                            if (ehGetterOuSetterSimples(md, campos.keySet())) {
+                            if (ehGetterOuSetterSimples(md)) {
                                 String nomeCampo = (md.getNameAsString());
 
                                 if (nomeCampo.startsWith("get")) {
@@ -111,6 +113,12 @@ public class LombokRefactor {
                                 .filter(Objects::nonNull)
                                 .forEach(f -> {
                                     String nomeCampo = normalizarNome(f.getVariable(0).getNameAsString(), false);
+                                    var var = f.getVariables().get(0);
+
+                                    if (f.getElementType().asString().equals("boolean") && var.getNameAsString().startsWith("is")) {
+                                        nomeCampo = Character.toLowerCase(nomeCampo.charAt(2)) + nomeCampo.substring(3);
+                                        var.setName(nomeCampo);
+                                    }
                                     Modifier.Keyword modGetter = metodosGetter.get(nomeCampo);
 
                                     if(modGetter != Modifier.Keyword.PUBLIC) {
@@ -165,48 +173,43 @@ public class LombokRefactor {
             });
     }
 
-    private static boolean ehGetterOuSetterSimples(MethodDeclaration md, Set<String> nomesCampos) {
-        if (!md.getBody().isPresent() || md.getBody().get().getStatements().size() != 1)
-            return false;
+    private static boolean ehGetterOuSetterSimples(MethodDeclaration md) {
+        if (md.getBody().isPresent() && md.getBody().get().getStatements().size() == 1 && validaNomeMetodo(md) && !md.isStatic()) {
 
-        String nomeMetodo = md.getNameAsString();
-        String nomeCampo = nomeDoCampo(nomeMetodo);
-        String nomeForaPadrao = Character.toUpperCase(nomeCampo.charAt(0)) + nomeCampo.substring(1);
+            String nomeMetodo = md.getNameAsString();
+            String nomeCampo = nomeDoCampo(nomeMetodo);
+            String nomeForaPadrao = Character.toUpperCase(nomeCampo.charAt(0)) + nomeCampo.substring(1);
 
-        if (!nomesCampos.contains(nomeCampo) || md.isStatic()) return false;
+            String stmt = md.getBody().get().getStatement(0).toString();
 
-        String stmt = md.getBody().get().getStatement(0).toString();
+            if (nomeMetodo.startsWith("get") ) {
+                //validação do get comum
+                return stmt.matches("return\\s+" + nomeCampo + "\\s*;")
+                        || stmt.matches("return\\s+this\\s*\\.\\s*" + nomeCampo + "\\s*;")
+                        || stmt.matches("return\\s+" + nomeForaPadrao + "\\s*;");
 
+            } else if (nomeMetodo.startsWith("set")) {
+                if (md.getParameters().size() != 1) return false;
 
-        if (nomeMetodo.startsWith("get") ) {
+                //validação para set com valor booleano em casos da variavel começar com is+campo
+                if (Objects.equals(md.getParameter(0).getType().asString(), "boolean")) {
+                    var nomeCampoBooleanForaDePadrao = "is" + normalizarNome(nomeCampo, true);
+                    return stmt.matches("(this\\.)?"+nomeCampoBooleanForaDePadrao+"\\s*=\\s*"+md.getParameter(0).getName()+";")
+                            || stmt.matches(nomeCampoBooleanForaDePadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";")
+                            || stmt.matches("(this\\.)?"+nomeCampo+"\\s*=\\s*"+md.getParameter(0).getName()+";");
+                }
 
+                //validação dos set comum
+                return stmt.matches("(this\\.)?"+nomeCampo+"\\s*=\\s*"+md.getParameter(0).getName()+";")
+                        || stmt.matches(nomeCampo + "\\s*=\\s*" + md.getParameter(0).getName() + ";")
+                        |stmt.matches("(this\\.)?" + nomeForaPadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";");
 
-            //validação do get comum
-            return stmt.matches("return\\s+" + nomeCampo + "\\s*;")
-                    || stmt.matches("return\\s+this\\s*\\.\\s*" + nomeCampo + "\\s*;")
-                    || stmt.matches("return\\s+" + nomeForaPadrao + "\\s*;");
+            } else if (nomeMetodo.startsWith("is")) {
 
-        } else if (nomeMetodo.startsWith("set")) {
-
-            if (md.getParameters().size() != 1) return false;
-
-            //validação para set com valor booleano em casos da variavel começar com is+campo
-            if (Objects.equals(md.getParameter(0).getType().asString(), "boolean")) {
+                //validação do get com valor booleano em casos da variavel comecar com is+campo
                 var nomeCampoBooleanForaDePadrao = "is" + normalizarNome(nomeCampo, true);
-                return stmt.matches("(this\\.)?"+nomeCampoBooleanForaDePadrao+"\\s*=\\s*"+md.getParameter(0).getName()+";")
-                        || stmt.matches(nomeCampoBooleanForaDePadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";");
+                return stmt.matches("return\\s+" + nomeCampoBooleanForaDePadrao + "\\s*;") || stmt.matches("return\\s+" + nomeCampo + "\\s*;");
             }
-
-            //validação dos set comum
-            return stmt.matches("(this\\.)?"+nomeCampo+"\\s*=\\s*"+md.getParameter(0).getName()+";")
-                    || stmt.matches(nomeCampo + "\\s*=\\s*" + md.getParameter(0).getName() + ";")
-                    |stmt.matches("(this\\.)?" + nomeForaPadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";");
-
-        } else if (nomeMetodo.startsWith("is")) {
-
-            //validação do get com valor booleano em casos da variavel comecar com is+campo
-            var nomeCampoBooleanForaDePadrao = "is" + normalizarNome(nomeCampo, true);
-            return stmt.matches("return\\s+" + nomeCampoBooleanForaDePadrao + "\\s*;") || stmt.matches("return\\s+" + nomeCampo + "\\s*;");
         }
         return false;
     }
@@ -302,7 +305,7 @@ public class LombokRefactor {
         clazz.accept(new ModifierVisitor<Void>() {
             @Override
             public Visitable visit(MethodDeclaration md, Void arg) {
-                if (ehGetterOuSetterSimples(md, campos.keySet())) {
+                if (ehGetterOuSetterSimples(md)) {
                     String nomeCampo = nomeDoCampo(md.getNameAsString());
 
                     if (md.getNameAsString().startsWith("get") || md.getNameAsString().startsWith("is")) {
@@ -365,7 +368,7 @@ public class LombokRefactor {
         enumDecl.accept(new ModifierVisitor<Void>() {
             @Override
             public Visitable visit(MethodDeclaration md, Void arg) {
-                if (ehGetterOuSetterSimples(md, campos.keySet())) {
+                if (ehGetterOuSetterSimples(md)) {
                     String nomeCampo = nomeDoCampo(md.getNameAsString());
                     if (md.getNameAsString().startsWith("get") || md.getNameAsString().startsWith("is")) {
                         camposComGetter.add(nomeCampo);
@@ -393,6 +396,13 @@ public class LombokRefactor {
                 processarEnum(member.asEnumDeclaration(), cu);
             }
         });
+    }
+
+    public static boolean validaNomeMetodo(MethodDeclaration md) {
+        String nomeMetodo = md.getNameAsString();
+        String nomeCampo = nomeDoCampo(nomeMetodo);
+        nomeCampo = normalizarNome(nomeCampo, true);
+        return (md.getNameAsString().startsWith("get" + nomeCampo) || md.getNameAsString().startsWith("set" + nomeCampo) || md.getNameAsString().startsWith("is" + nomeCampo));
     }
 
 }
