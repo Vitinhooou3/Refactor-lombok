@@ -1,212 +1,248 @@
 package org.example;
 
 
-import com.github.javaparser.*;
+import com.github.javaparser.JavaParser;
+import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.EnumDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.comments.LineComment;
 import com.github.javaparser.ast.expr.NormalAnnotationExpr;
 import com.github.javaparser.ast.visitor.ModifierVisitor;
 import com.github.javaparser.ast.visitor.Visitable;
 import com.github.javaparser.printer.lexicalpreservation.LexicalPreservingPrinter;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 public class LombokRefactor {
 
     public static void main(String[] args) throws IOException {
-        Path root = Paths.get("/home/victor/victor/dev/repo/eclipse/econect/");
+        Path root = Paths.get("/luana/dev/repo/eclipse/econect/Econect-CFeAPI/src/main/java/econect/cfe/nfce/retorno/consstsrv/RetornoWsConsStatServNFCe.java");
 
         Files.walk(root)
-            .filter(path -> path.toString().endsWith(".java"))
-            .forEach(path -> {
-                try {
-                    JavaParser javaParser = new JavaParser();
-                    ParseResult<CompilationUnit> parseResult = javaParser.parse(path);
+                .filter(path -> path.toString().endsWith(".java"))
+                .forEach(path -> {
+                    try {
+                        JavaParser javaParser = new JavaParser();
+                        ParseResult<CompilationUnit> parseResult = javaParser.parse(path);
 
-                    CompilationUnit cu = parseResult.getResult().get();
-                    LexicalPreservingPrinter.setup(cu);
+                        CompilationUnit cu = parseResult.getResult().get();
+                        LexicalPreservingPrinter.setup(cu);
 
-                    Map<String, FieldDeclaration> campos = new HashMap<>();
-                    Map<String, Modifier.Keyword> metodosGetter = new HashMap<>();
-                    Map<String, Modifier.Keyword> metodosSetter = new HashMap<>();
-                    List<String> camposComGetter = new ArrayList<>();
-                    List<String> camposComSetter = new ArrayList<>();
+                        Map<String, FieldDeclaration> campos = new HashMap<>();
+                        Map<String, Modifier.Keyword> metodosGetter = new HashMap<>();
+                        Map<String, Modifier.Keyword> metodosSetter = new HashMap<>();
+                        List<String> camposComGetter = new ArrayList<>();
+                        List<String> camposComSetter = new ArrayList<>();
+                        // Lista de métodos com a nomenclatura fora do padrão
+                        List<String> nomesForaDoPadrao = new ArrayList<>();
 
-                    if (classeComAnotacaoXML(cu) || classeComAnotacaoWeb(cu)) {
-                        return;
-                    }
-
-                    cu.findAll(ClassOrInterfaceDeclaration.class).forEach(classOrInterfaceDeclaration -> {
-                        if (classOrInterfaceDeclaration.isInnerClass()) {
-                            processarClasseOuInterface(classOrInterfaceDeclaration, cu);
+                        if (classeComAnotacaoXML(cu) || classeComAnotacaoWeb(cu)) {
+                            return;
                         }
-                    });
 
-                    cu.findAll(EnumDeclaration.class).forEach(enumDeclaration -> {
-                        processarEnum(enumDeclaration, cu);
-                    });
+                        cu.findAll(ClassOrInterfaceDeclaration.class).forEach(classOrInterfaceDeclaration -> {
+                            if (classOrInterfaceDeclaration.isInnerClass()) {
+                                processarClasseOuInterface(classOrInterfaceDeclaration, cu);
+                            }
+                        });
 
-                    // 1. Identifica todos os campos e não adiciona estáticos
-                    cu.findAll(FieldDeclaration.class).forEach(f -> {
-                        f.getVariables().forEach(var -> {
-                            String nomeVariavel = var.getNameAsString();
-                            if (!f.isStatic()) {
-                                    String name = Character.toLowerCase(nomeVariavel.charAt(0)) + nomeVariavel.substring(1);
+                        cu.findAll(EnumDeclaration.class).forEach(enumDeclaration -> {
+                            processarEnum(enumDeclaration, cu);
+                        });
+
+                        // 1. Identifica todos os campos e não adiciona estáticos
+                        cu.findAll(FieldDeclaration.class).forEach(f -> {
+                            f.getVariables().forEach(var -> {
+                                String nomeVariavel = var.getNameAsString();
+                                String name = Character.toLowerCase(nomeVariavel.charAt(0)) + nomeVariavel.substring(1);
+                                if (!f.isStatic()) {
+                                    if (f.getElementType().asString().equals("boolean") && var.getNameAsString().startsWith("is")) {
+                                        name = Character.toLowerCase(nomeVariavel.charAt(2)) + nomeVariavel.substring(3);
+                                    }
                                     campos.put(name, f);
-
-                            }
-                        });
-                    });
-
-                    cu.findAll(MethodDeclaration.class)
-                            .forEach(method -> {
-                                String nomeMetodo = method.getNameAsString();
-                                String nomeCampo = nomeDoCampo(nomeMetodo);
-
-                                Modifier.Keyword modificador = method.getModifiers()
-                                        .isEmpty() ? null : method.getModifiers().get(0).getKeyword();
-
-                                if (nomeMetodo.startsWith("get") || nomeMetodo.startsWith("is")  ) {
-                                    metodosGetter.put(nomeCampo, modificador);
-                                } else if (nomeMetodo.startsWith("set")) {
-                                    metodosSetter.put(nomeCampo, modificador);
                                 }
-
                             });
-
-                    // 2. Remove métodos get/set simples e marca os campos associados
-                    cu.accept(new ModifierVisitor<Void>() {
-                        @Override
-                        public Visitable visit(MethodDeclaration md, Void arg) {
-                            if (ehGetterOuSetterSimples(md, campos.keySet())) {
-                                String nomeCampo = (md.getNameAsString());
-
-                                if (nomeCampo.startsWith("get")) {
-                                    camposComGetter.add(nomeDoCampo(nomeCampo));
-                                }
-
-                                if (nomeCampo.startsWith("set")) {
-                                    camposComSetter.add(nomeDoCampo(nomeCampo));
-                                }
-
-                                if (nomeCampo.startsWith("is")) {
-                                    camposComGetter.add(nomeDoCampo(nomeCampo));
-                                }
-
-                                return null; // remove method
-                            }
-                            return super.visit(md, arg);
-                        }
-                    }, null);
-                    if (!camposComGetter.isEmpty()) {
-                        camposComGetter.stream()
-                                .distinct()
-                                .map(campos::get)
-                                .filter(Objects::nonNull)
-                                .forEach(f -> {
-                                    String nomeCampo = normalizarNome(f.getVariable(0).getNameAsString(), false);
-                                    Modifier.Keyword modGetter = metodosGetter.get(nomeCampo);
-
-                                    if(modGetter != Modifier.Keyword.PUBLIC) {
-                                        NormalAnnotationExpr getterAnnotation = new NormalAnnotationExpr();
-                                        getterAnnotation.setName("Getter");
-                                        getterAnnotation.addPair("value", "AccessLevel." + (modGetter != null ? modGetter.toString().toUpperCase() : "PACKAGE"));
-                                        f.addAnnotation(getterAnnotation);
-                                        cu.addImport("lombok.AccessLevel");
-                                    } else {
-                                        f.addAnnotation("Getter");
-                                    }
-                                });
-
-                        cu.addImport("lombok.Getter");
-                    }
-                    if (!camposComSetter.isEmpty()) {
-                        camposComSetter.stream()
-                                .distinct()
-                                .map(campos::get)
-                                .filter(Objects::nonNull)
-                                .forEach(f -> {
-                                    String nomeCampo = normalizarNome(f.getVariable(0).getNameAsString(), false);
-                                    Modifier.Keyword modSetter = metodosSetter.get(nomeCampo);
-
-                                    if(modSetter != Modifier.Keyword.PUBLIC) {
-                                        NormalAnnotationExpr setterAnnotation = new NormalAnnotationExpr();
-                                        setterAnnotation.setName("Setter");
-                                        setterAnnotation.addPair("value", "AccessLevel." + (modSetter != null ? modSetter.toString().toUpperCase() : "PACKAGE"));
-                                        f.addAnnotation(setterAnnotation);
-                                        cu.addImport("lombok.AccessLevel");
-                                    } else {
-                                        f.addAnnotation("Setter");
-                                    }
-                                });
-
-                        cu.addImport("lombok.Setter");
-
-                    }
-                    String result = LexicalPreservingPrinter.print(cu);
-                    result = result.replaceAll("@Setter", "\n\t@Setter");
-                    result = result.replaceAll("@(\\w+)\\s+@(Getter)", "@$1\n\t@$2");
-                    Files.writeString(path, result);
-
-                    if (args.length > 1 && Objects.equals(args[1], "mostrar")) {
-                        cu.getPrimaryTypeName().ifPresent(className -> {
-                            System.out.println("Classe: " + className);
                         });
+
+                        cu.findAll(MethodDeclaration.class)
+                                .forEach(method -> {
+                                    String nomeMetodo = method.getNameAsString();
+                                    String nomeCampo = nomeDoCampo(nomeMetodo);
+
+                                    Modifier.Keyword modificador = method.getModifiers()
+                                            .isEmpty() ? null : method.getModifiers().get(0).getKeyword();
+
+                                    if(validaNomeMetodo(method)) {
+                                        if (nomeMetodo.startsWith("get") || nomeMetodo.startsWith("is")) {
+                                            metodosGetter.put(nomeCampo, modificador);
+                                        } else if (nomeMetodo.startsWith("set")) {
+                                            metodosSetter.put(nomeCampo, modificador);
+                                        }
+                                    } else {
+                                        if(nomeMetodo.startsWith("get") || nomeMetodo.startsWith("is") || nomeMetodo.startsWith("set"))
+                                            nomesForaDoPadrao.add(method.getNameAsString());
+                                    }
+                                });
+
+                        // 2. Remove métodos get/set simples e marca os campos associados
+                        cu.accept(new ModifierVisitor<Void>() {
+                            @Override
+                            public Visitable visit(MethodDeclaration md, Void arg) {
+                                if (ehGetterOuSetterSimples(md) && !nomesForaDoPadrao.contains(md.getNameAsString())) {
+                                    String nomeCampo = (md.getNameAsString());
+
+                                    if (nomeCampo.startsWith("get") || nomeCampo.startsWith("is")) {
+                                        camposComGetter.add(nomeDoCampo(nomeCampo));
+                                    }
+
+                                    if (nomeCampo.startsWith("set")) {
+                                        camposComSetter.add(nomeDoCampo(nomeCampo));
+                                    }
+
+                                    return null; // remove method
+                                }
+                                return super.visit(md, arg);
+                            }
+                        }, null);
+                        if (!camposComGetter.isEmpty()) {
+                            camposComGetter.stream()
+                                    .distinct()
+                                    .map(campos::get)
+                                    .filter(Objects::nonNull)
+                                    .forEach(f -> {
+                                        String nomeCampo = normalizarNome(f.getVariable(0).getNameAsString(), false);
+                                        var var = f.getVariables().get(0);
+
+                                        if (f.getElementType().asString().equals("boolean") && var.getNameAsString().startsWith("is")) {
+                                            nomeCampo = Character.toLowerCase(nomeCampo.charAt(2)) + nomeCampo.substring(3);
+                                            var.setName(nomeCampo);
+                                        }
+                                        Modifier.Keyword modGetter = metodosGetter.get(nomeCampo);
+
+                                        if(modGetter != Modifier.Keyword.PUBLIC) {
+                                            NormalAnnotationExpr getterAnnotation = new NormalAnnotationExpr();
+                                            getterAnnotation.setName("Getter");
+                                            getterAnnotation.addPair("value", "AccessLevel." + (modGetter != null ? modGetter.toString().toUpperCase() : "PACKAGE"));
+                                            f.addAnnotation(getterAnnotation);
+                                            cu.addImport("lombok.AccessLevel");
+                                        } else {
+                                            f.addAnnotation("Getter");
+                                        }
+                                    });
+
+                            cu.addImport("lombok.Getter");
+                        }
+                        if (!camposComSetter.isEmpty()) {
+                            camposComSetter.stream()
+                                    .distinct()
+                                    .map(campos::get)
+                                    .filter(Objects::nonNull)
+                                    .forEach(f -> {
+                                        String nomeCampo = normalizarNome(f.getVariable(0).getNameAsString(), false);
+                                        Modifier.Keyword modSetter = metodosSetter.get(nomeCampo);
+
+                                        if(modSetter != Modifier.Keyword.PUBLIC) {
+                                            NormalAnnotationExpr setterAnnotation = new NormalAnnotationExpr();
+                                            setterAnnotation.setName("Setter");
+                                            setterAnnotation.addPair("value", "AccessLevel." + (modSetter != null ? modSetter.toString().toUpperCase() : "PACKAGE"));
+                                            f.addAnnotation(setterAnnotation);
+                                            cu.addImport("lombok.AccessLevel");
+                                        } else {
+                                            f.addAnnotation("Setter");
+                                        }
+                                    });
+
+                            cu.addImport("lombok.Setter");
+                        }
+
+                        if (!nomesForaDoPadrao.isEmpty()) {
+                            // Itera sobre todos os campos
+                            cu.findAll(FieldDeclaration.class).forEach(fd -> {
+                                // Itera sobre as variáveis dentro de cada campo (cada FieldDeclaration pode ter várias variáveis)
+                                fd.getVariables().forEach(var -> {
+                                    // Obtém o nome da variável
+                                    String nomeVariavel = var.getNameAsString();
+
+                                    // Verifica se o nome da variável está presente na lista de métodos fora do padrão
+                                    if (nomesForaDoPadrao.stream().anyMatch(nome -> nome.contains(nomeVariavel))) {
+                                        // Cria o comentário de linha única (comentário // TODO)
+                                        LineComment comentario = new LineComment(" TODO: Ajustar o nome do getter/setter para seguir o padrão.");
+
+                                        // Adiciona o comentário ao campo
+                                        fd.setComment(comentario);
+                                    }
+                                });
+                            });
+                        }
+
+                        String result = LexicalPreservingPrinter.print(cu);
+                        result = result.replaceAll("@Setter", "\n\t@Setter");
+                        result = result.replaceAll("@(\\w+)\\s+@(Getter)", "@$1\n\t@$2");
+                        Files.writeString(path, result);
+
+                        if (args.length > 1 && Objects.equals(args[1], "mostrar")) {
+                            cu.getPrimaryTypeName().ifPresent(className -> {
+                                System.out.println("Classe: " + className);
+                            });
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Erro em " + path + ": " + e.getMessage());
                     }
-                } catch (Exception e) {
-                    System.err.println("Erro em " + path + ": " + e.getMessage());
-                }
-            });
+                });
     }
 
-    private static boolean ehGetterOuSetterSimples(MethodDeclaration md, Set<String> nomesCampos) {
-        if (!md.getBody().isPresent() || md.getBody().get().getStatements().size() != 1)
-            return false;
-
+    public static boolean validaNomeMetodo(MethodDeclaration md) {
         String nomeMetodo = md.getNameAsString();
         String nomeCampo = nomeDoCampo(nomeMetodo);
-        String nomeForaPadrao = Character.toUpperCase(nomeCampo.charAt(0)) + nomeCampo.substring(1);
+        nomeCampo = normalizarNome(nomeCampo, true);
+        return (md.getNameAsString().startsWith("get" + nomeCampo) || md.getNameAsString().startsWith("set" + nomeCampo) || md.getNameAsString().startsWith("is" + nomeCampo));
+    }
 
-        if (!nomesCampos.contains(nomeCampo) || md.isStatic()) return false;
+    private static boolean ehGetterOuSetterSimples(MethodDeclaration md) {
+        if (md.getBody().isPresent() && md.getBody().get().getStatements().size() == 1 && validaNomeMetodo(md) && !md.isStatic()) {
 
-        String stmt = md.getBody().get().getStatement(0).toString();
+            String nomeMetodo = md.getNameAsString();
+            String nomeCampo = nomeDoCampo(nomeMetodo);
+            String nomeForaPadrao = Character.toUpperCase(nomeCampo.charAt(0)) + nomeCampo.substring(1);
 
+            String stmt = md.getBody().get().getStatement(0).toString();
 
-        if (nomeMetodo.startsWith("get") ) {
+            if (nomeMetodo.startsWith("get") ) {
+                //validação do get comum
+                return stmt.matches("return\\s+" + nomeCampo + "\\s*;")
+                        || stmt.matches("return\\s+this\\s*\\.\\s*" + nomeCampo + "\\s*;")
+                        || stmt.matches("return\\s+" + nomeForaPadrao + "\\s*;");
 
+            } else if (nomeMetodo.startsWith("set")) {
+                if (md.getParameters().size() != 1) return false;
 
-            //validação do get comum
-            return stmt.matches("return\\s+" + nomeCampo + "\\s*;")
-                    || stmt.matches("return\\s+this\\s*\\.\\s*" + nomeCampo + "\\s*;")
-                    || stmt.matches("return\\s+" + nomeForaPadrao + "\\s*;");
+                //validação para set com valor booleano em casos da variavel começar com is+campo
+                if (Objects.equals(md.getParameter(0).getType().asString(), "boolean")) {
+                    var nomeCampoBooleanForaDePadrao = "is" + normalizarNome(nomeCampo, true);
+                    return stmt.matches("(this\\.)?"+nomeCampoBooleanForaDePadrao+"\\s*=\\s*"+md.getParameter(0).getName()+";")
+                            || stmt.matches(nomeCampoBooleanForaDePadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";" )
+                            || stmt.matches("(this\\.)?"+nomeCampo+"\\s*=\\s*"+md.getParameter(0).getName()+";");
+                }
 
-        } else if (nomeMetodo.startsWith("set")) {
+                //validação dos set comum
+                return stmt.matches("(this\\.)?"+nomeCampo+"\\s*=\\s*"+md.getParameter(0).getName()+";")
+                        || stmt.matches(nomeCampo + "\\s*=\\s*" + md.getParameter(0).getName() + ";")
+                        |stmt.matches("(this\\.)?" + nomeForaPadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";");
 
-            if (md.getParameters().size() != 1) return false;
+            } else if (nomeMetodo.startsWith("is")) {
 
-            //validação para set com valor booleano em casos da variavel começar com is+campo
-            if (Objects.equals(md.getParameter(0).getType().asString(), "boolean")) {
+                //validação do get com valor booleano em casos da variavel comecar com is+campo
                 var nomeCampoBooleanForaDePadrao = "is" + normalizarNome(nomeCampo, true);
-                return stmt.matches("(this\\.)?"+nomeCampoBooleanForaDePadrao+"\\s*=\\s*"+md.getParameter(0).getName()+";")
-                        || stmt.matches(nomeCampoBooleanForaDePadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";");
+                return stmt.matches("return\\s+" + nomeCampoBooleanForaDePadrao + "\\s*;") || stmt.matches("return\\s+" + nomeCampo + "\\s*;");
             }
-
-            //validação dos set comum
-            return stmt.matches("(this\\.)?"+nomeCampo+"\\s*=\\s*"+md.getParameter(0).getName()+";")
-                    || stmt.matches(nomeCampo + "\\s*=\\s*" + md.getParameter(0).getName() + ";")
-                    |stmt.matches("(this\\.)?" + nomeForaPadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";");
-
-        } else if (nomeMetodo.startsWith("is")) {
-
-            //validação do get com valor booleano em casos da variavel comecar com is+campo
-            var nomeCampoBooleanForaDePadrao = "is" + normalizarNome(nomeCampo, true);
-            return stmt.matches("return\\s+" + nomeCampoBooleanForaDePadrao + "\\s*;") || stmt.matches("return\\s+" + nomeCampo + "\\s*;");
         }
         return false;
     }
@@ -302,7 +338,7 @@ public class LombokRefactor {
         clazz.accept(new ModifierVisitor<Void>() {
             @Override
             public Visitable visit(MethodDeclaration md, Void arg) {
-                if (ehGetterOuSetterSimples(md, campos.keySet())) {
+                if (ehGetterOuSetterSimples(md)) {
                     String nomeCampo = nomeDoCampo(md.getNameAsString());
 
                     if (md.getNameAsString().startsWith("get") || md.getNameAsString().startsWith("is")) {
@@ -365,7 +401,7 @@ public class LombokRefactor {
         enumDecl.accept(new ModifierVisitor<Void>() {
             @Override
             public Visitable visit(MethodDeclaration md, Void arg) {
-                if (ehGetterOuSetterSimples(md, campos.keySet())) {
+                if (ehGetterOuSetterSimples(md)) {
                     String nomeCampo = nomeDoCampo(md.getNameAsString());
                     if (md.getNameAsString().startsWith("get") || md.getNameAsString().startsWith("is")) {
                         camposComGetter.add(nomeCampo);
@@ -394,5 +430,4 @@ public class LombokRefactor {
             }
         });
     }
-
 }
