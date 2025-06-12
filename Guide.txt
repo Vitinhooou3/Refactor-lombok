@@ -2,13 +2,14 @@ Guia para atuação no código de sanitização
 
 ** JAVA PARSER **
 
-- O Java Parser nos possibilita manipular a AST (Abstract Syntax Tree), a qual é gerada
-  na compilação do código. Através dela conseguimos acesso à principal classe que usamos para
-  ter acesso a estrutura de árvore gerada, a Compilation Unit.
+- O Java Parser nos possibilita manipular a AST (Abstract Syntax Tree),
+  A AST é gerada pelo Java Parser durante o parsing do código fonte, representando a
+  estrutura hierárquica do código Java. Através dela conseguimos acesso à principal
+  classe que usamos para manipular a estrutura de árvore gerada, a Compilation Unit.
 
 - A Compilation Unit é a principal classe que utilizamos, pois é dela que conseguimos,
-  por exemplo, encontrar as declarações de classes, métodos, enums, e outros elementos que
-  podem estar num arquivo.
+  por exemplo, encontrar as declarações de classes, métodos, enums, e outros elementos
+  que podem estar num arquivo.
 
 - Pelo Java Parser também temos acesso aos métodos de accept e visit. Esses métodos cuidam da
   navegação pela AST gerada e aplicam uma ação especificada. Ou seja, a compilation unit aceita
@@ -21,13 +22,13 @@ Guia para atuação no código de sanitização
   Dessa forma, aplicamos várias operações de findAll passando o tipo de elemento, e com esse resultado
   aplicamos o forEach abrindo lambda.
 
-- Separamos os métodos que são considerados getter e setter simples utilizando o método "ehGetterESetterSimples"
-  que analisa o início do método, e como é seu retorno.
+- Separamos os métodos que são considerados getter e setter simples utilizando o método
+  "ehGetterESetterSimples" que analisa o início do método, e como é seu retorno.
 
-- Usamos o método "nomeDoCampo" para retirar a parte inicial de um método getter e setter e descobrir a qual
-  campo ele refere-se.
+- Usamos o método "nomeDoCampo" para retirar a parte inicial de um método getter e setter e
+  descobrir a qual campo ele refere-se.
 
 - O método "normalizarNome" foi criado para reciclar alguns passos em comum
 
-- "ProcessarClasseOuInterface" e "ProcessarEnum" são miniaturas da lógica aplicada na main, servindo de
-  tratativa para classes aninhadas
+- "ProcessarClasseOuInterface" e "ProcessarEnum" são miniaturas da lógica aplicada na main,
+  servindo de tratativa para classes aninhadas

@@ -208,7 +208,9 @@ public class LombokRefactor {
         String nomeMetodo = md.getNameAsString();
         String nomeCampo = nomeDoCampo(nomeMetodo);
         nomeCampo = normalizarNome(nomeCampo, true);
-        return (md.getNameAsString().startsWith("get" + nomeCampo) || md.getNameAsString().startsWith("set" + nomeCampo) || md.getNameAsString().startsWith("is" + nomeCampo));
+        return (md.getNameAsString().startsWith("get" + nomeCampo) && !md.getType().asString().equals("boolean"))
+                || (md.getNameAsString().startsWith("is" + nomeCampo) && !md.getType().asString().equals("boolean"))
+                || md.getNameAsString().startsWith("set" + nomeCampo);
     }
 
     /**
@@ -423,6 +425,7 @@ public class LombokRefactor {
     private static void processarEnum(EnumDeclaration enumDecl, CompilationUnit cu) {
         Map<String, FieldDeclaration> campos = new HashMap<>();
         List<String> camposComGetter = new ArrayList<>();
+        List<String> camposComSetter = new ArrayList<>();
 
         enumDecl.findAll(FieldDeclaration.class).forEach(f -> {
             f.getVariables().forEach(var -> {
@@ -440,6 +443,10 @@ public class LombokRefactor {
                     if (md.getNameAsString().startsWith("get") || md.getNameAsString().startsWith("is")) {
                         camposComGetter.add(nomeMetodo);
                     }
+
+                    if (md.getNameAsString().startsWith("set")) {
+                        camposComSetter.add(nomeMetodo);
+                    }
                     return null;
                 }
                 return super.visit(md, arg);
@@ -454,6 +461,16 @@ public class LombokRefactor {
                     .filter(Objects::nonNull)
                     .forEach(f -> f.addAnnotation("Getter"));
         }
+
+        if (!camposComGetter.isEmpty()) {
+            cu.addImport("lombok.Setter");
+            camposComSetter.stream()
+                    .distinct()
+                    .map(campos::get)
+                    .filter(Objects::nonNull)
+                    .forEach(f -> f.addAnnotation("Setter"));
+        }
+
 
         // Recursividade para enums internos
         enumDecl.getMembers().forEach(member -> {
