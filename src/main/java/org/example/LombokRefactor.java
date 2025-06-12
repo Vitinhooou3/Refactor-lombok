@@ -24,7 +24,7 @@ import java.util.*;
 public class LombokRefactor {
 
     public static void main(String[] args) throws IOException {
-        Path root = Paths.get("/luana/dev/repo/eclipse/econect/Econect-CFeAPI/src/main/java/econect/cfe/nfce/retorno/consstsrv/RetornoWsConsStatServNFCe.java");
+        Path root = Paths.get("/home/victor/victor/dev/repo/eclipse/econect/");
 
         Files.walk(root)
                 .filter(path -> path.toString().endsWith(".java"))
@@ -96,15 +96,15 @@ public class LombokRefactor {
                         cu.accept(new ModifierVisitor<Void>() {
                             @Override
                             public Visitable visit(MethodDeclaration md, Void arg) {
-                                if (ehGetterOuSetterSimples(md) && !nomesForaDoPadrao.contains(md.getNameAsString())) {
-                                    String nomeCampo = (md.getNameAsString());
+                                if (isGetterOuSetterSimples(md) && !nomesForaDoPadrao.contains(md.getNameAsString())) {
+                                    String nomeMetodo = (md.getNameAsString());
 
-                                    if (nomeCampo.startsWith("get") || nomeCampo.startsWith("is")) {
-                                        camposComGetter.add(nomeDoCampo(nomeCampo));
+                                    if (nomeMetodo.startsWith("get") || nomeMetodo.startsWith("is")) {
+                                        camposComGetter.add(nomeDoCampo(nomeMetodo));
                                     }
 
-                                    if (nomeCampo.startsWith("set")) {
-                                        camposComSetter.add(nomeDoCampo(nomeCampo));
+                                    if (nomeMetodo.startsWith("set")) {
+                                        camposComSetter.add(nomeDoCampo(nomeMetodo));
                                     }
 
                                     return null; // remove method
@@ -199,6 +199,11 @@ public class LombokRefactor {
                 });
     }
 
+    /**
+     * Faz a verificação dos nomes dos métodos
+     * @param md
+     * @return
+     */
     public static boolean validaNomeMetodo(MethodDeclaration md) {
         String nomeMetodo = md.getNameAsString();
         String nomeCampo = nomeDoCampo(nomeMetodo);
@@ -206,7 +211,12 @@ public class LombokRefactor {
         return (md.getNameAsString().startsWith("get" + nomeCampo) || md.getNameAsString().startsWith("set" + nomeCampo) || md.getNameAsString().startsWith("is" + nomeCampo));
     }
 
-    private static boolean ehGetterOuSetterSimples(MethodDeclaration md) {
+    /**
+     * Faz a verificação dos retornos dos métodos
+     * @param md
+     * @return
+     */
+    private static boolean isGetterOuSetterSimples(MethodDeclaration md) {
         if (md.getBody().isPresent() && md.getBody().get().getStatements().size() == 1 && validaNomeMetodo(md) && !md.isStatic()) {
 
             String nomeMetodo = md.getNameAsString();
@@ -247,6 +257,11 @@ public class LombokRefactor {
         return false;
     }
 
+    /**
+     * Metodo para log no terminal que ignora classes com anotações @Xml
+     * @param cu
+     * @return
+     */
     private static boolean classeComAnotacaoXML(CompilationUnit cu) {
         boolean result = cu.findAll(ClassOrInterfaceDeclaration.class).stream()
                 .anyMatch(classe ->
@@ -259,6 +274,11 @@ public class LombokRefactor {
         return result;
     }
 
+    /**
+     * Metodo que utiliza o nome do metodo para extrair o nome do campo ao qual ele está se referindo
+     * @param nomeMetodo
+     * @return
+     */
     private static String nomeDoCampo(String nomeMetodo) {
         String semPrefixo;
         if (nomeMetodo.startsWith("get") || nomeMetodo.startsWith("set")) {
@@ -277,6 +297,11 @@ public class LombokRefactor {
         return nomeMetodo;
     }
 
+    /**
+     * Metodo para log no terminal que ignora classes com anotações @Web
+     * @param cu
+     * @return
+     */
     private static boolean classeComAnotacaoWeb(CompilationUnit cu) {
         boolean result = cu.findAll(ClassOrInterfaceDeclaration.class).stream()
                 .anyMatch(classe ->
@@ -289,18 +314,22 @@ public class LombokRefactor {
         return result;
     }
 
-    public static boolean matches(String stringValidar, List<String> matches) {
-        if (stringValidar == null || matches == null) return false;
-
-        return matches.stream()
-                .anyMatch(match -> match.equalsIgnoreCase(stringValidar));
-    }
-
+    /**
+     * Metodo que ajusta uma string com a primeira letra maiúscula ou minúscula conforme o upper
+     * @param nome
+     * @param upper
+     * @return
+     */
     public static String normalizarNome(String nome, boolean upper) {
         return upper ? Character.toUpperCase(nome.charAt(0)) + nome.substring(1)
                 : Character.toLowerCase(nome.charAt(0)) + nome.substring(1);
     }
 
+    /**
+     * Metodo que processa Classes ou interfaces
+     * @param clazz
+     * @param cu
+     */
     private static void processarClasseOuInterface(ClassOrInterfaceDeclaration clazz, CompilationUnit cu) {
         Map<String, FieldDeclaration> campos = new HashMap<>();
         Map<String, Modifier.Keyword> metodosGetter = new HashMap<>();
@@ -338,13 +367,13 @@ public class LombokRefactor {
         clazz.accept(new ModifierVisitor<Void>() {
             @Override
             public Visitable visit(MethodDeclaration md, Void arg) {
-                if (ehGetterOuSetterSimples(md)) {
-                    String nomeCampo = nomeDoCampo(md.getNameAsString());
+                if (isGetterOuSetterSimples(md)) {
+                    String nomeMetodo = nomeDoCampo(md.getNameAsString());
 
                     if (md.getNameAsString().startsWith("get") || md.getNameAsString().startsWith("is")) {
-                        camposComGetter.add(nomeCampo);
+                        camposComGetter.add(nomeMetodo);
                     } else if (md.getNameAsString().startsWith("set")) {
-                        camposComSetter.add(nomeCampo);
+                        camposComSetter.add(nomeMetodo);
                     }
 
                     return null;
@@ -386,6 +415,11 @@ public class LombokRefactor {
         });
     }
 
+    /**
+     * Metodo que processa o enum dentro de uma classe
+     * @param enumDecl
+     * @param cu
+     */
     private static void processarEnum(EnumDeclaration enumDecl, CompilationUnit cu) {
         Map<String, FieldDeclaration> campos = new HashMap<>();
         List<String> camposComGetter = new ArrayList<>();
@@ -401,10 +435,10 @@ public class LombokRefactor {
         enumDecl.accept(new ModifierVisitor<Void>() {
             @Override
             public Visitable visit(MethodDeclaration md, Void arg) {
-                if (ehGetterOuSetterSimples(md)) {
-                    String nomeCampo = nomeDoCampo(md.getNameAsString());
+                if (isGetterOuSetterSimples(md)) {
+                    String nomeMetodo = nomeDoCampo(md.getNameAsString());
                     if (md.getNameAsString().startsWith("get") || md.getNameAsString().startsWith("is")) {
-                        camposComGetter.add(nomeCampo);
+                        camposComGetter.add(nomeMetodo);
                     }
                     return null;
                 }
