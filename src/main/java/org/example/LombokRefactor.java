@@ -24,7 +24,7 @@ import java.util.*;
 public class LombokRefactor {
 
     public static void main(String[] args) throws IOException {
-        Path root = Paths.get("/home/victor/victor/dev/repo/eclipse/econect/");
+        Path root = Paths.get("/home/victor/victor/dev/repo/eclipse/econect/Econect-CFeAPI/src/main/java/econect/cfe/nfce/retorno/consstsrv/RetornoWsConsStatServNFCe.java");
 
         Files.walk(root)
                 .filter(path -> path.toString().endsWith(".java"))
@@ -64,9 +64,9 @@ public class LombokRefactor {
                                 String nomeVariavel = var.getNameAsString();
                                 String name = Character.toLowerCase(nomeVariavel.charAt(0)) + nomeVariavel.substring(1);
                                 if (!f.isStatic()) {
-                                    if (f.getElementType().asString().equals("boolean") && var.getNameAsString().startsWith("is")) {
-                                        name = Character.toLowerCase(nomeVariavel.charAt(2)) + nomeVariavel.substring(3);
-                                    }
+//                                    if (f.getElementType().asString().equals("boolean") && var.getNameAsString().startsWith("is")) {
+//                                        name = Character.toLowerCase(nomeVariavel.charAt(2)) + nomeVariavel.substring(3);
+//                                    }
                                     campos.put(name, f);
                                 }
                             });
@@ -87,8 +87,8 @@ public class LombokRefactor {
                                             metodosSetter.put(nomeCampo, modificador);
                                         }
                                     } else {
-                                        if(nomeMetodo.startsWith("get") || nomeMetodo.startsWith("is") || nomeMetodo.startsWith("set"))
-                                            nomesForaDoPadrao.add(method.getNameAsString());
+                                        //if(nomeMetodo.startsWith("get") || nomeMetodo.startsWith("is") || nomeMetodo.startsWith("set"))
+                                         //   nomesForaDoPadrao.add(method.getNameAsString());
                                     }
                                 });
 
@@ -121,10 +121,10 @@ public class LombokRefactor {
                                         String nomeCampo = normalizarNome(f.getVariable(0).getNameAsString(), false);
                                         var var = f.getVariables().get(0);
 
-                                        if (f.getElementType().asString().equals("boolean") && var.getNameAsString().startsWith("is")) {
-                                            nomeCampo = Character.toLowerCase(nomeCampo.charAt(2)) + nomeCampo.substring(3);
-                                            var.setName(nomeCampo);
-                                        }
+//                                        if (f.getElementType().asString().equals("boolean") && var.getNameAsString().startsWith("is")) {
+//                                            nomeCampo = Character.toLowerCase(nomeCampo.charAt(2)) + nomeCampo.substring(3);
+//                                            var.setName(nomeCampo);
+//                                        }
                                         Modifier.Keyword modGetter = metodosGetter.get(nomeCampo);
 
                                         if(modGetter != Modifier.Keyword.PUBLIC) {
@@ -163,25 +163,25 @@ public class LombokRefactor {
                             cu.addImport("lombok.Setter");
                         }
 
-                        if (!nomesForaDoPadrao.isEmpty()) {
-                            // Itera sobre todos os campos
-                            cu.findAll(FieldDeclaration.class).forEach(fd -> {
-                                // Itera sobre as variáveis dentro de cada campo (cada FieldDeclaration pode ter várias variáveis)
-                                fd.getVariables().forEach(var -> {
-                                    // Obtém o nome da variável
-                                    String nomeVariavel = var.getNameAsString();
-
-                                    // Verifica se o nome da variável está presente na lista de métodos fora do padrão
-                                    if (nomesForaDoPadrao.stream().anyMatch(nome -> nome.contains(nomeVariavel))) {
-                                        // Cria o comentário de linha única (comentário // TODO)
-                                        LineComment comentario = new LineComment(" TODO: Ajustar o nome do getter/setter para seguir o padrão.");
-
-                                        // Adiciona o comentário ao campo
-                                        fd.setComment(comentario);
-                                    }
-                                });
-                            });
-                        }
+//                        if (!nomesForaDoPadrao.isEmpty()) {
+//                            // Itera sobre todos os campos
+//                            cu.findAll(FieldDeclaration.class).forEach(fd -> {
+//                                // Itera sobre as variáveis dentro de cada campo (cada FieldDeclaration pode ter várias variáveis)
+//                                fd.getVariables().forEach(var -> {
+//                                    // Obtém o nome da variável
+//                                    String nomeVariavel = var.getNameAsString();
+//
+//                                    // Verifica se o nome da variável está presente na lista de métodos fora do padrão
+//                                    if (nomesForaDoPadrao.stream().anyMatch(nome -> nome.contains(nomeVariavel))) {
+//                                        // Cria o comentário de linha única (comentário // TODO)
+//                                        LineComment comentario = new LineComment(" TODO: Ajustar o nome do getter/setter para seguir o padrão.");
+//
+//                                        // Adiciona o comentário ao campo
+//                                        fd.setComment(comentario);
+//                                    }
+//                                });
+//                            });
+//                        }
 
                         String result = LexicalPreservingPrinter.print(cu);
                         result = result.replaceAll("@Setter", "\n\t@Setter");
@@ -209,7 +209,7 @@ public class LombokRefactor {
         String nomeCampo = nomeDoCampo(nomeMetodo);
         nomeCampo = normalizarNome(nomeCampo, true);
         return (md.getNameAsString().startsWith("get" + nomeCampo) && !md.getType().asString().equals("boolean"))
-                || (md.getNameAsString().startsWith("is" + nomeCampo) && !md.getType().asString().equals("boolean"))
+                || (md.getNameAsString().startsWith("is" + nomeCampo) && md.getType().asString().equals("boolean"))
                 || md.getNameAsString().startsWith("set" + nomeCampo);
     }
 
