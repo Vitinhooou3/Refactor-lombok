@@ -93,7 +93,7 @@ public class LombokRefactor {
                         cu.accept(new ModifierVisitor<Void>() {
                             @Override
                             public Visitable visit(MethodDeclaration md, Void arg) {
-                                if (isGetterOuSetterSimples(md) && !nomesForaDoPadrao.contains(md.getNameAsString())) {
+                                if (isGetterOuSetterSimples(md) && !nomesForaDoPadrao.contains(md.getNameAsString()) && campos.containsKey(nomeDoCampo(md.getNameAsString()))) {
                                     String nomeMetodo = (md.getNameAsString());
 
                                     if (nomeMetodo.startsWith("get") || nomeMetodo.startsWith("is")) {
