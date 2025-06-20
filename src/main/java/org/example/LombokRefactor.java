@@ -181,8 +181,8 @@ public class LombokRefactor {
 //                        }
 
                         String result = LexicalPreservingPrinter.print(cu);
-                        result = result.replaceAll("@Setter", "\n\t@Setter");
-                        result = result.replaceAll("@(\\w+)\\s+@(Getter)", "@$1\n\t@$2");
+//                        result = result.replaceAll("@Setter", "\n\t@Setter");
+//                        result = result.replaceAll("@(\\w+)\\s+@(Getter)", "@$1\n\t@$2");
                         Files.writeString(path, result);
 
                         if (args.length > 1 && Objects.equals(args[1], "mostrar")) {
