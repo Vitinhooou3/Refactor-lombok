@@ -11,6 +11,7 @@ import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.comments.LineComment;
 import com.github.javaparser.ast.expr.NormalAnnotationExpr;
+import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.ast.visitor.ModifierVisitor;
 import com.github.javaparser.ast.visitor.Visitable;
 import com.github.javaparser.printer.lexicalpreservation.LexicalPreservingPrinter;
@@ -24,8 +25,7 @@ import java.util.*;
 public class LombokRefactor {
 
     public static void main(String[] args) throws IOException {
-        Path root = Paths.get("/home/victor/victor/dev/repo/eclipse/econect/Econect-CFeAPI/src/main/java/econect/cfe/nfce/retorno/consstsrv/RetornoWsConsStatServNFCe.java");
-
+        Path root = Paths.get("/home/victor/victor/dev/repo/eclipse/econect/");
         Files.walk(root)
                 .filter(path -> path.toString().endsWith(".java"))
                 .forEach(path -> {
@@ -64,9 +64,6 @@ public class LombokRefactor {
                                 String nomeVariavel = var.getNameAsString();
                                 String name = Character.toLowerCase(nomeVariavel.charAt(0)) + nomeVariavel.substring(1);
                                 if (!f.isStatic()) {
-//                                    if (f.getElementType().asString().equals("boolean") && var.getNameAsString().startsWith("is")) {
-//                                        name = Character.toLowerCase(nomeVariavel.charAt(2)) + nomeVariavel.substring(3);
-//                                    }
                                     campos.put(name, f);
                                 }
                             });
@@ -238,10 +235,10 @@ public class LombokRefactor {
 
                 //validação para set com valor booleano em casos da variavel começar com is+campo
                 if (Objects.equals(md.getParameter(0).getType().asString(), "boolean")) {
-                    var nomeCampoBooleanForaDePadrao = "is" + normalizarNome(nomeCampo, true);
-                    return stmt.matches("(this\\.)?"+nomeCampoBooleanForaDePadrao+"\\s*=\\s*"+md.getParameter(0).getName()+";")
-                            || stmt.matches(nomeCampoBooleanForaDePadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";" )
-                            || stmt.matches("(this\\.)?"+nomeCampo+"\\s*=\\s*"+md.getParameter(0).getName()+";");
+//                    var nomeCampoBooleanForaDePadrao = "is" + normalizarNome(nomeCampo, true);
+//                    return stmt.matches("(this\\.)?"+nomeCampoBooleanForaDePadrao+"\\s*=\\s*"+md.getParameter(0).getName()+";")
+//                            || stmt.matches(nomeCampoBooleanForaDePadrao + "\\s*=\\s*" + md.getParameter(0).getName() + ";" )
+//                            || stmt.matches("(this\\.)?"+nomeCampo+"\\s*=\\s*"+md.getParameter(0).getName()+";");
                 }
 
                 //validação dos set comum
@@ -251,9 +248,7 @@ public class LombokRefactor {
 
             } else if (nomeMetodo.startsWith("is")) {
 
-                //validação do get com valor booleano em casos da variavel comecar com is+campo
-                var nomeCampoBooleanForaDePadrao = "is" + normalizarNome(nomeCampo, true);
-                return stmt.matches("return\\s+" + nomeCampoBooleanForaDePadrao + "\\s*;") || stmt.matches("return\\s+" + nomeCampo + "\\s*;");
+                return stmt.matches("return\\s+" + nomeCampo + "\\s*;");
             }
         }
         return false;
